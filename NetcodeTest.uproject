@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "4.16",
+	"Category": "",
+	"Description": "",
+	"Modules": [
+		{
+			"Name": "NetcodeTest",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"OnlineSubsystemUtils"
+			]
+		}
+	],
+	"TargetPlatforms": [
+		"HTML5",
+		"WindowsNoEditor"
+	]
+}
