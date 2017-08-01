@@ -5,6 +5,9 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "Engine/NetDriver.h"
+#if PLATFORM_HTML5
+#include <emscripten/val.h>
+#endif
 #include "NetcodeNetDriver.generated.h"
 
 /**
@@ -39,5 +42,8 @@ class NETCODETEST_API UNetcodeNetDriver : public UNetDriver
 	//~ Begin FExec Interface
 	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar = *GLog) override;
 	//~ End FExec Interface
+
+private:
+	TArray<uint8> ConnectionToken;
 
 };

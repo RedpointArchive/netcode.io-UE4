@@ -6,7 +6,14 @@
 #include "UObject/ObjectMacros.h"
 #include "Engine/NetConnection.h"
 #include "netcode.h"
+#if PLATFORM_HTML5
+#include <emscripten/val.h>
+#endif
 #include "NetcodeSocketConnection.generated.h"
+
+#if PLATFORM_HTML5
+using namespace emscripten;
+#endif
 
 /**
  * Represents a netcode.io connection.
@@ -31,12 +38,24 @@ class NETCODETEST_API UNetcodeSocketConnection : public UNetConnection
 	virtual void ReceivedRawPacket(void* Data, int32 Count);
 	//~ End NetConnection Interface
 
+private:
+	bool IsReady();
+
+public:
+
 #if WITH_LIBSODIUM_BINDING
 	void SetNetcodeClient(struct netcode_client_t * Client);
 	struct netcode_client_t * GetNetcodeClient();
 
 private:
-
 	struct netcode_client_t * NetcodeClient;
+#elif PLATFORM_HTML5
+	void SetNetcodeClient(emscripten::val Client);
+	struct emscripten::val GetNetcodeClient();
+
+private:
+	bool IsClientReady;
+	emscripten::val Client;
+
 #endif
 };

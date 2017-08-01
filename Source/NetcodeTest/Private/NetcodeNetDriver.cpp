@@ -7,6 +7,10 @@
 #include "Base64.h"
 #include "SocketSubsystem.h"
 
+#if PLATFORM_HTML5
+using namespace emscripten;
+#endif
+
 UNetcodeNetDriver::UNetcodeNetDriver(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -50,8 +54,6 @@ bool UNetcodeNetDriver::InitConnect(FNetworkNotify* InNotify, const FURL& Connec
 	ServerConnection = NewObject<UNetcodeSocketConnection>(NetConnectionClass);
 
 	// Read the connection URL.
-	TArray<uint8> ConnectionTokenArray;
-	uint8_t* ConnectionToken;
 	const TCHAR* const TokenRaw = ConnectURL.GetOption(TEXT("Token="), nullptr);
 	FString Token = TEXT("");
 	if (TokenRaw != nullptr)
@@ -67,23 +69,45 @@ bool UNetcodeNetDriver::InitConnect(FNetworkNotify* InNotify, const FURL& Connec
 #else
 		// We have no token, which means we're communicating locally; just use the empty
 		// array as the private key.
-		ConnectionToken = ConnectionTokenArray.GetData();
+		this->ConnectionToken.Empty();
 #endif
 	}
 	else
 	{
 		// Decode the token from a Base64 value.
-		FBase64::Decode(Token, ConnectionTokenArray);
-		ConnectionToken = ConnectionTokenArray.GetData();
+		FBase64::Decode(Token, this->ConnectionToken);
 	}
 
 #if PLATFORM_HTML5
-	EM_ASM(
-		// TODO: Use Javascript APIs to set up netcode.io client.
-		/*window.netcode.createClient('ipv4', function(err, client) {
-			
-		});*/
-	)
+	val NetcodeApi = val::global("netcode");
+	if (!NetcodeApi.as<bool>())
+	{
+		// netcode.io is not supported in the browser.
+		return false;
+	}
+
+	NetcodeApi.call<void>("createClient", "ipv4", [this](emscripten::val Err, emscripten::val Client)
+	{
+		// Assign the client to the connection.
+		UNetcodeSocketConnection* NetcodeConnection = (UNetcodeSocketConnection*)ServerConnection;
+		NetcodeConnection->SetNetcodeClient(Client);
+
+		// Tell the netcode.io client to connect.
+		std::string ConnArrayBuffer;
+		ConnArrayBuffer.reserve(this->ConnectionToken.Len());
+		for (int i = 0; i < this->ConnectionToken.Len(); i++)
+		{
+			ConnArrayBuffer[i] = std::to_string(this->ConnectionToken[i]);
+		}
+		Client.call<void>("connect", ConnArrayBuffer, [this](emscripten::val Err)
+		{
+			// Client connection request has completed.
+			this->IsClientReady = true;
+		});
+	});
+
+	// Client isn't actually ready yet...
+	return true;
 #else
 	// Create the netcode.io client.
 	struct netcode_client_t* Client = netcode_client_create("0.0.0.0", 0);
@@ -93,7 +117,8 @@ bool UNetcodeNetDriver::InitConnect(FNetworkNotify* InNotify, const FURL& Connec
 	NetcodeConnection->SetNetcodeClient(Client);
 
 	// Tell netcode.io to connect.
-	netcode_client_connect(Client, ConnectionToken);
+	uint8_t* ConnTokenPtr = this->ConnectionToken.GetData();
+	netcode_client_connect(Client, ConnTokenPtr);
 
 	return true;
 #endif

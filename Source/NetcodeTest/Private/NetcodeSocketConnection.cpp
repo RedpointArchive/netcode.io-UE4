@@ -10,6 +10,8 @@ UNetcodeSocketConnection::UNetcodeSocketConnection(const FObjectInitializer& Obj
 {
 #if WITH_LIBSODIUM_BINDING
 	this->NetcodeClient = nullptr;
+#elif PLATFORM_HTML5
+	this->IsClientReady = false;
 #endif
 }
 
@@ -79,3 +81,13 @@ struct netcode_client_t * UNetcodeSocketConnection::GetNetcodeClient()
 }
 
 #endif
+
+bool UNetcodeSocketConnection::IsReady()
+{
+#if PLATFORM_HTML5
+	return this->IsClientReady;
+#else
+	// Connection is synchronously setup when socket is constructed by net driver.
+	return true;
+#endif
+}
